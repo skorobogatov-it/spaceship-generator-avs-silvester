@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { GeneratorState, ShipFraction, ShipPurpose } from "../types";
 import { FRACTION_DETAILS, MILITARY_CLASSES, CIVILIAN_CLASSES } from "../constants";
 
@@ -137,7 +137,11 @@ export const generateShipImage = async (state: GeneratorState): Promise<string> 
   }
 
   // Проверяем, не превышены ли лимиты
-  const quotaExceeded = localStorage.getItem('gemini_quota_exceeded');
+  let quotaExceeded = false;
+  if (typeof window !== 'undefined' && window.localStorage) {
+    quotaExceeded = localStorage.getItem('gemini_quota_exceeded') !== null;
+  }
+  
   if (quotaExceeded) {
     console.warn("Daily quota exceeded, using fallback");
     const fallback = getFallbackImage(state);
@@ -148,7 +152,7 @@ export const generateShipImage = async (state: GeneratorState): Promise<string> 
   try {
     // Используем очередь для соблюдения rate limits
     return await queue.add(async () => {
-      const ai = new GoogleGenerativeAI(apiKey);
+      const ai = new GoogleGenAI({ apiKey });
       
       const fractionInfo = FRACTION_DETAILS[state.fraction];
       const sizeClass = state.purpose === ShipPurpose.MILITARY 
@@ -204,20 +208,20 @@ export const generateShipImage = async (state: GeneratorState): Promise<string> 
 
       try {
         // Используем модель, доступную в бесплатном тарифе
-        const model = ai.getGenerativeModel({ 
+        const response = await ai.models.generateContent({
           model: DEFAULT_MODEL,
-          generationConfig: {
-            maxOutputTokens: 500,
+          contents: {
+            parts: [{ text: prompt }]
+          },
+          config: {
             temperature: 0.7,
+            maxOutputTokens: 500,
           }
         });
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const description = response.text();
+        const description = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
         
         // Поскольку бесплатный Gemini не генерирует изображения, возвращаем fallback
-        // Но сохраняем описание в кэше для возможного использования в будущем
         console.log("Generated description:", description);
         
         const fallback = getFallbackImage(state);
@@ -232,11 +236,15 @@ export const generateShipImage = async (state: GeneratorState): Promise<string> 
         
         // Проверяем, не ошибка ли 429 (quota exceeded)
         if (error.message?.includes('429') || error.message?.includes('quota') || error.message?.includes('RESOURCE_EXHAUSTED')) {
-          localStorage.setItem('gemini_quota_exceeded', 'true');
-          // Сбросить через 24 часа
-          setTimeout(() => {
-            localStorage.removeItem('gemini_quota_exceeded');
-          }, 24 * 60 * 60 * 1000);
+          if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem('gemini_quota_exceeded', 'true');
+            // Сбросить через 24 часа
+            setTimeout(() => {
+              if (window.localStorage) {
+                localStorage.removeItem('gemini_quota_exceeded');
+              }
+            }, 24 * 60 * 60 * 1000);
+          }
         }
         
         // Используем fallback в случае ошибки
@@ -263,5 +271,7 @@ export const clearOldCache = (): void => {
   }
 };
 
-// Запускаем очистку кэша каждые 30 минут
-setInterval(clearOldCache, 30 * 60 * 1000);
+// Запускаем очистку кэша каждые 30 минут только в браузере
+if (typeof window !== 'undefined') {
+  setInterval(clearOldCache, 30 * 60 * 1000);
+}
