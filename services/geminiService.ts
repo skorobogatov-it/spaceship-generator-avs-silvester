@@ -12,7 +12,7 @@ let isProcessing = false;
 const MIN_REQUEST_INTERVAL = 4100; // 4.1 секунды между запросами (15/мин)
 
 // Модель для генерации изображений (требует биллинга)
-const IMAGE_MODEL = "gemini-2.0-flash-exp-image-generation"; // Или "gemini-2.5-flash-preview-image" если доступна
+const IMAGE_MODEL = "gemini-2.5-flash-preview-image"; // Или "gemini-2.5-flash-preview-image" если доступна
 
 class GeminiQueue {
   private lastRequestTime = 0;
