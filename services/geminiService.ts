@@ -12,7 +12,7 @@ let isProcessing = false;
 const MIN_REQUEST_INTERVAL = 4100; // 4.1 секунды между запросами (15/мин)
 
 // Модель по умолчанию - используем flash, так как flash-image требует биллинга
-const DEFAULT_MODEL = "gemini-1.5-flash";
+const DEFAULT_MODEL = "gemini-2.5-flash-image";
 
 class GeminiQueue {
   private lastRequestTime = 0;
